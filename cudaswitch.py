@@ -14,6 +14,8 @@ import sys
 cuda_on='nocuda' not in sys.argv and cuda.is_available()
 print('CUDA {}'.format(['OFF','ON'][cuda_on]))
 
+blocks=1000
+threads=1000
 
 def cudaswitch_kernel(dtypes):
     def dec(f):
@@ -82,8 +84,8 @@ def wrapcuda(f):
     def f_(*args):
         moved=[isinstance(x,np.ndarray) and cuda_on for x in args]
         deviceargs=[cuda.to_device(x) if m else x for m,x in zip(moved,args)]
-        f(*args)
-        args=[cuda.copy_to_host(x) if m else x for m,x in zip(moved,args)]
+        f(*deviceargs)
+        args=[x.copy_to_host() if m else x for m,x in zip(moved,deviceargs)]
         return args
     return f_
 
