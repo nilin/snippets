@@ -67,25 +67,31 @@ def cuda_if_avail_vec(x):
         return x
 
 
-def test(M: csr_matrix, x: np.ndarray, compare_scipy=True, print_result=False):
+def test(
+    M: csr_matrix, x: np.ndarray, compare_scipy=True, print_result=False, iterations=100
+):
     assert cuda_on
     M_ = cuda_if_avail_csr(M)
     x_ = cuda_if_avail_vec(x)
     scratchpad = cuda.device_array(len(x_), dtype=x.dtype)
 
     t0 = time.time()
-    y_ = M_.dot(x_, scratchpad)
+    for _ in range(iterations):
+        y_ = M_.dot(x_, scratchpad)
+        x_, scratchpad = y_, x_
     cuda.synchronize()
     t1 = time.time()
 
     print(f"m={len(y_)}, n={len(x_)}")
-    print(f"CUDA {t1-t0:.6f} seconds")
+    print(f"CUDA {(t1-t0)/iterations:.6f} seconds")
 
     if compare_scipy:
         t0 = time.time()
-        y = M.dot(x)
+        for _ in range(iterations):
+            x = M.dot(x)
+            y = x
         t1 = time.time()
-        print(f"Scipy {t1-t0:.6f} seconds")
+        print(f"Scipy {(t1-t0)/iterations:.6f} seconds")
 
         if print_result:
             print(y_.copy_to_host())
@@ -95,17 +101,19 @@ def test(M: csr_matrix, x: np.ndarray, compare_scipy=True, print_result=False):
         print("correctness test passed")
 
 
-def maketest(n=256):
-    M = csr_array(
-        (np.ones(n, dtype=np.complex64), (np.arange(n), (np.arange(n) + 1) % n)),
-        shape=(n, n),
-    )
+def maketest(n=256, k=10):
+    M = 0
+    for i in range(k):
+        M += csr_array(
+            (np.ones(n, dtype=np.complex64), (np.arange(n), (np.arange(n) + i) % n)),
+            shape=(n, n),
+        )
     x = np.arange(n, dtype=np.complex64)
     return M, x
 
 
-def print_test_example(n=4):
-    M, x = maketest(n)
+def print_test_example(n=4, k=2):
+    M, x = maketest(n, k)
     print("\ntest example")
     print(M.todense())
     print(x, "\n")
@@ -114,5 +122,5 @@ def print_test_example(n=4):
 if __name__ == "__main__":
     print_test_example()
 
-    M, x = maketest(1000000)
+    M, x = maketest(100000)
     test(M, x)
