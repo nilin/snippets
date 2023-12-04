@@ -26,9 +26,9 @@ if cuda_on:
         """dot product of CSR matrix and vector"""
 
         m = len(scratchpad)
-        start = cuda.grid(1)
-        stepsize = cuda.gridsize(1)
-        for i in range(start, m, stepsize):
+        thread_id = cuda.grid(1)
+        n_threads = cuda.gridsize(1)
+        for i in range(thread_id, m, n_threads):
             scratchpad[i] = 0
             for j in range(indptr[i], indptr[i + 1]):
                 scratchpad[i] += data[j] * x[indices[j]]
@@ -122,5 +122,5 @@ def print_test_example(n=4, k=2):
 if __name__ == "__main__":
     print_test_example()
 
-    M, x = maketest(100000)
+    M, x = maketest(100000, k=1)
     test(M, x)
